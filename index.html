@@ -137,21 +137,19 @@
                 setIsLoading(true);
 
                 const { loanId, tenant, blendProduct, token } = formData;
-                const url = `https://api.blendlabs.com/configurable/applications/${loanId}?includeRelations=true`;
+                const url = `/.netlify/functions/blendlabs-proxy`;
 
                 try {
                     const response = await fetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json; charset=utf-8',
-                            'Content-Type': 'application/json',
-                            'blend-api-version': '5.3.0',
-                            'blend-target-instance': tenant,
-                            'cache-control': 'no-cache',
-                            'blend-product': blendProduct,
-                            'blend-product-api-version': '1.0.0',
-                            'Authorization': `Bearer ${token}`,
-                        },
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            method: 'GET',
+                            loanId,
+                            tenant,
+                            blendProduct,
+                            token
+                        })
                     });
 
                     if (!response.ok) {
@@ -187,22 +185,20 @@
                 }
 
                 const { loanId, tenant, blendProduct, token } = formData;
-                const url = `https://api.blendlabs.com/configurable/applications/${loanId}?includeRelations=true`;
+                const url = `/.netlify/functions/blendlabs-proxy`;
 
                 try {
                     const response = await fetch(url, {
-                        method: 'PATCH',
-                        headers: {
-                            'Accept': 'application/json; charset=utf-8',
-                            'Content-Type': 'application/json',
-                            'blend-api-version': '5.3.0',
-                            'blend-target-instance': tenant,
-                            'cache-control': 'no-cache',
-                            'blend-product': blendProduct,
-                            'blend-product-api-version': '1.0.0',
-                            'Authorization': `Bearer ${token}`,
-                        },
-                        body: JSON.stringify(diff),
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            method: 'PATCH',
+                            loanId,
+                            tenant,
+                            blendProduct,
+                            token,
+                            body: diff,
+                        })
                     });
 
                     if (!response.ok) {
