@@ -71,7 +71,6 @@ const App = () => {
 
     const renderEditableFields = (data, path = '') => {
         if (typeof data !== 'object' || data === null) {
-            // Primitive value → editable input
             return (
                 <input
                     type="text"
@@ -83,55 +82,37 @@ const App = () => {
         }
     
         if (Array.isArray(data)) {
-            // Render arrays
-            return data.map((item, index) => {
-                const currentPath = path ? `${path}[${index}]` : `[${index}]`;
+            // Special handling for borrowers array
+            if (path === 'borrowers') {
+                return (
+                    <div className="max-h-96 overflow-y-auto space-y-3">
+                        {data.map((item, index) => {
+                            const currentPath = `${path}[${index}]`;
+                            const title = item.firstName && item.lastName ? `${item.firstName} ${item.lastName}` : `Borrower ${index + 1}`;
+                            const isOpen = expandedPaths[currentPath] ?? true; // default open
     
-                // If array contains objects, make collapsible
-                if (typeof item === 'object' && item !== null) {
-                    const title =
-                        item.firstName && item.lastName
-                            ? `${item.firstName} ${item.lastName}`
-                            : `Item ${index + 1}`;
-                    const [isOpen, setIsOpen] = React.useState(true);
-    
-                    return (
-                        <div
-                            key={currentPath}
-                            className="mb-3 border border-gray-200 rounded-lg bg-white shadow-sm"
-                        >
-                            <button
-                                type="button"
-                                onClick={() => setIsOpen(!isOpen)}
-                                className="w-full text-left px-4 py-2 bg-gray-100 rounded-t-lg font-semibold flex justify-between items-center"
-                            >
-                                {title}
-                                <span className="ml-2">{isOpen ? '▲' : '▼'}</span>
-                            </button>
-                            {isOpen && (
-                                <div className="p-4 space-y-2">
-                                    {renderEditableFields(item, currentPath)}
+                            return (
+                                <div key={currentPath} className="border border-gray-200 rounded-lg bg-white shadow-sm">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleExpand(currentPath)}
+                                        className="w-full text-left px-4 py-2 bg-gray-100 rounded-t-lg font-semibold flex justify-between items-center hover:bg-gray-200"
+                                    >
+                                        {title}
+                                        <span className="ml-2">{isOpen ? '▲' : '▼'}</span>
+                                    </button>
+                                    {isOpen && <div className="p-4 space-y-2">{renderEditableFields(item, currentPath)}</div>}
                                 </div>
-                            )}
-                        </div>
-                    );
-                } else {
-                    // Array of primitives → render inputs
-                    return (
-                        <div key={currentPath} className="mb-2">
-                            <input
-                                type="text"
-                                value={editedDataPath(currentPath) || ''}
-                                onChange={(e) => handleDataChange(e.target.value, currentPath)}
-                                className="w-full p-2 border border-gray-300 rounded-lg"
-                            />
-                        </div>
-                    );
-                }
-            });
+                            );
+                        })}
+                    </div>
+                );
+            }
+    
+            // Generic array handling for other arrays
+            return data.map((item, index) => renderEditableFields(item, `${path}[${index}]`));
         }
     
-        // Render objects
         return Object.entries(data).map(([key, value]) => {
             const currentPath = path ? `${path}.${key}` : key;
             return (
@@ -139,15 +120,12 @@ const App = () => {
                     key={currentPath}
                     className="flex flex-col md:flex-row items-start md:items-center p-3 my-2 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200"
                 >
-                    <label className="font-semibold text-gray-700 w-full md:w-1/3 mb-1 md:mb-0 md:mr-4 break-words">
-                        {key}:
-                    </label>
+                    <label className="font-semibold text-gray-700 w-full md:w-1/3 mb-1 md:mb-0 md:mr-4 break-words">{key}:</label>
                     <div className="flex-1 w-full">{renderEditableFields(value, currentPath)}</div>
                 </div>
             );
         });
     };
-
 
     const findDifferences = (original, updated) => {
         const diff = {};
