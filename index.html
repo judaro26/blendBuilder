@@ -24,336 +24,209 @@
 <body class="bg-gray-100 antialiased">
     <div id="root"></div>
 
-    <script type="text/babel">
-        // Main App component
-        const App = () => {
-            // State for the input form
-            const [formData, setFormData] = React.useState({
-                loanId: '',
-                blendProduct: '',
-                tenant: '',
-                token: '',
-            });
+<script type="text/babel">
+const App = () => {
+    const [formData, setFormData] = React.useState({
+        loanId: '',
+        blendProduct: '',
+        tenant: '',
+        token: '',
+    });
 
-            // State for API data, edited data, loading, and messages
-            const [apiData, setApiData] = React.useState(null);
-            const [editedData, setEditedData] = React.useState(null);
-            const [isLoading, setIsLoading] = React.useState(false);
-            const [message, setMessage] = React.useState('');
-            const [isDataFetched, setIsDataFetched] = React.useState(false);
+    const [apiData, setApiData] = React.useState(null);
+    const [editedData, setEditedData] = React.useState(null);
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [message, setMessage] = React.useState('');
+    const [isDataFetched, setIsDataFetched] = React.useState(false);
 
-            // Handles changes in the initial form inputs
-            const handleFormChange = (e) => {
-                const { name, value } = e.target;
-                setFormData(prevData => ({ ...prevData, [name]: value }));
-            };
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
 
-            // Recursive function to render a nested JSON object as editable fields
-            const renderEditableFields = (data, path = '') => {
-                // If data is a primitive, render an input field
-                if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-                    return (
-                        <input
-                            type="text"
-                            value={editedDataPath(path) || ''}
-                            onChange={(e) => handleDataChange(e.target.value, path)}
-                            className="flex-1 w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
-                        />
-                    );
-                }
+    const editedDataPath = (path) => {
+        let value = editedData;
+        const keys = path.split('.');
+        for (let key of keys) {
+            if (value && typeof value === 'object' && key in value) {
+                value = value[key];
+            } else return undefined;
+        }
+        return value;
+    };
 
-                // If data is an object, recurse through its properties
-                return Object.entries(data).map(([key, value]) => {
-                    const currentPath = path ? `${path}.${key}` : key;
-                    return (
-                        <div key={currentPath} className="flex flex-col md:flex-row items-start md:items-center p-3 my-2 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
-                            <label className="font-semibold text-gray-700 w-full md:w-1/3 mb-1 md:mb-0 md:mr-4 break-words">
-                                {key}:
-                            </label>
-                            <div className="flex-1 w-full">
-                                {renderEditableFields(value, currentPath)}
-                            </div>
-                        </div>
-                    );
-                });
-            };
+    const handleDataChange = (newValue, path) => {
+        const updatedData = { ...editedData };
+        let current = updatedData;
+        const keys = path.split('.');
+        for (let i = 0; i < keys.length - 1; i++) {
+            if (typeof current[keys[i]] !== 'object' || current[keys[i]] === null) {
+                current[keys[i]] = {};
+            }
+            current = current[keys[i]];
+        }
+        current[keys[keys.length - 1]] = newValue;
+        setEditedData(updatedData);
+    };
 
-            // Helper function to get a value from the editedData state based on a path
-            const editedDataPath = (path) => {
-                let value = editedData;
-                const keys = path.split('.');
-                for (let key of keys) {
-                    if (value && typeof value === 'object' && key in value) {
-                        value = value[key];
-                    } else {
-                        return undefined;
-                    }
-                }
-                return value;
-            };
-
-            // Handles changes to the editable JSON data
-            const handleDataChange = (newValue, path) => {
-                const updatedData = { ...editedData };
-                let current = updatedData;
-                const keys = path.split('.');
-
-                // Traverse the object to find the correct key
-                for (let i = 0; i < keys.length - 1; i++) {
-                    if (typeof current[keys[i]] !== 'object' || current[keys[i]] === null) {
-                        // If a part of the path is not an object, create it
-                        current[keys[i]] = {};
-                    }
-                    current = current[keys[i]];
-                }
-                // Update the final value
-                current[keys[keys.length - 1]] = newValue;
-                setEditedData(updatedData);
-            };
-
-            // Compares two objects and returns a new object with only the differences
-            const findDifferences = (original, updated) => {
-                const diff = {};
-                for (const key in updated) {
-                    // Skip arrays as they are not handled by this recursive diff
-                    if (Array.isArray(updated[key])) continue;
-
-                    if (typeof updated[key] === 'object' && updated[key] !== null) {
-                        const nestedDiff = findDifferences(original[key] || {}, updated[key]);
-                        if (Object.keys(nestedDiff).length > 0) {
-                            diff[key] = nestedDiff;
-                        }
-                    } else if (String(original[key]) !== String(updated[key])) {
-                        diff[key] = updated[key];
-                    }
-                }
-                return diff;
-            };
-
-            // Handles the initial API call to fetch data
-            const handleFetchData = async (e) => {
-                e.preventDefault();
-                setMessage('');
-                setIsLoading(true);
-            
-                const { loanId, tenant, blendProduct, token } = formData;
-                const url = `https://blendproxy-198883432206.us-west2.run.app`;
-            
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'tenant': tenant,                        // Pass tenant as header
-                            'Authorization': `Bearer ${token}`       // Optional if proxy requires token
-                        },
-                        body: JSON.stringify({
-                            method: 'GET',
-                            loanId,
-                            blendProduct,
-                        })
-                    });
-            
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-                    }
-            
-                    const data = await response.json();
-                    setApiData(data);
-                    setEditedData(data); // Create an editable copy
-                    setIsDataFetched(true);
-                    setMessage('Data fetched successfully!');
-            
-                } catch (error) {
-                    console.error('Fetch error:', error);
-                    setMessage(`Failed to fetch data: ${error.message}`);
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-            
-            // Handles the PATCH request to save changes
-            const handleSaveChanges = async () => {
-                setMessage('');
-                setIsLoading(true);
-            
-                const diff = findDifferences(apiData, editedData);
-            
-                if (Object.keys(diff).length === 0) {
-                    setMessage('No changes to save.');
-                    setIsLoading(false);
-                    return;
-                }
-            
-                const { loanId, tenant, blendProduct, token } = formData;
-                const url = `https://blendproxy-198883432206.us-west2.run.app`;
-            
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'tenant': tenant,                        // Pass tenant as header
-                            'Authorization': `Bearer ${token}`       // Optional if proxy requires token
-                        },
-                        body: JSON.stringify({
-                            method: 'PATCH',
-                            loanId,
-                            blendProduct,
-                            body: diff,
-                        })
-                    });
-            
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-                    }
-            
-                    const updatedData = await response.json();
-                    setApiData(updatedData);
-                    setEditedData(updatedData);
-                    setMessage('Changes saved successfully!');
-            
-                } catch (error) {
-                    console.error('Save error:', error);
-                    setMessage(`Failed to save changes: ${error.message}`);
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
+    const renderEditableFields = (data, path = '') => {
+        if (typeof data !== 'object' || data === null || Array.isArray(data)) {
             return (
-                <div className="bg-gray-100 min-h-screen p-4 sm:p-8 text-gray-800">
-                    <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-6 sm:p-10 border border-gray-200">
-                        <h1 className="text-3xl font-extrabold text-center text-blue-800 mb-6 tracking-tight">
-                            Blend API Editor
-                        </h1>
-                        <p className="text-center text-gray-600 mb-8">
-                            Enter your API credentials and Loan ID to fetch, view, and edit data.
-                        </p>
+                <input
+                    type="text"
+                    value={editedDataPath(path) || ''}
+                    onChange={(e) => handleDataChange(e.target.value, path)}
+                    className="flex-1 w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                />
+            );
+        }
 
-                        {/* Form for initial API call parameters */}
-                        <form onSubmit={handleFetchData} className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                            <div className="col-span-1">
-                                <label htmlFor="loanId" className="block text-sm font-medium text-gray-700">Loan ID</label>
-                                <input
-                                    type="text"
-                                    name="loanId"
-                                    id="loanId"
-                                    value={formData.loanId}
-                                    onChange={handleFormChange}
-                                    required
-                                    className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500"
-                                />
-                            </div>
-                            <div className="col-span-1">
-                                <label htmlFor="blendProduct" className="block text-sm font-medium text-gray-700">Blend Product</label>
-                                <input
-                                    type="text"
-                                    name="blendProduct"
-                                    id="blendProduct"
-                                    value={formData.blendProduct}
-                                    onChange={handleFormChange}
-                                    required
-                                    className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500"
-                                />
-                            </div>
-                            <div className="col-span-1">
-                                <label htmlFor="tenant" className="block text-sm font-medium text-gray-700">Tenant</label>
-                                <input
-                                    type="text"
-                                    name="tenant"
-                                    id="tenant"
-                                    value={formData.tenant}
-                                    onChange={handleFormChange}
-                                    required
-                                    className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500"
-                                />
-                            </div>
-                            <div className="col-span-1">
-                                <label htmlFor="token" className="block text-sm font-medium text-gray-700">Authorization Token</label>
-                                <input
-                                    type="password"
-                                    name="token"
-                                    id="token"
-                                    value={formData.token}
-                                    onChange={handleFormChange}
-                                    required
-                                    className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500"
-                                />
-                            </div>
-                            <div className="col-span-1 md:col-span-2">
-                                <button
-                                    type="submit"
-                                    disabled={isLoading}
-                                    className="w-full flex justify-center items-center py-3 px-6 border border-transparent rounded-lg shadow-sm text-lg font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:bg-blue-400 disabled:cursor-not-allowed"
-                                >
-                                    {isLoading && !isDataFetched ? (
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                    ) : null}
-                                    Fetch Data
-                                </button>
-                            </div>
-                        </form>
-
-                        {message && (
-                            <div className="p-4 rounded-lg bg-blue-100 text-blue-700 font-medium text-center mb-6">
-                                {message}
-                            </div>
-                        )}
-
-                        {/* Display editable API data */}
-                        {apiData && (
-                            <div className="mt-8 border-t-2 border-gray-200 pt-8">
-                                <h2 className="text-2xl font-bold text-blue-800 mb-4">
-                                    Editable Application Data
-                                </h2>
-                                <div className="bg-gray-50 p-4 rounded-xl shadow-inner max-h-[60vh] overflow-y-auto">
-                                    {renderEditableFields(apiData)}
-                                </div>
-
-                                {/* Save button for PATCH request */}
-                                <div className="mt-6">
-                                    <button
-                                        onClick={handleSaveChanges}
-                                        disabled={isLoading}
-                                        className="w-full flex justify-center items-center py-3 px-6 border border-transparent rounded-lg shadow-sm text-lg font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:bg-green-400 disabled:cursor-not-allowed"
-                                    >
-                                        {isLoading && isDataFetched ? (
-                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                        ) : null}
-                                        Save Changes
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+        return Object.entries(data).map(([key, value]) => {
+            const currentPath = path ? `${path}.${key}` : key;
+            return (
+                <div key={currentPath} className="flex flex-col md:flex-row items-start md:items-center p-3 my-2 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+                    <label className="font-semibold text-gray-700 w-full md:w-1/3 mb-1 md:mb-0 md:mr-4 break-words">{key}:</label>
+                    <div className="flex-1 w-full">{renderEditableFields(value, currentPath)}</div>
                 </div>
             );
-        };
+        });
+    };
 
-        // Main function to render the React app
-        const renderApp = () => {
-            const rootElement = document.getElementById('root');
-            // Ensure that rootElement exists before rendering
-            if (rootElement) {
-                ReactDOM.createRoot(rootElement).render(<App />);
-            } else {
-                console.error("Root element not found");
+    const findDifferences = (original, updated) => {
+        const diff = {};
+        for (const key in updated) {
+            if (Array.isArray(updated[key])) continue;
+            if (typeof updated[key] === 'object' && updated[key] !== null) {
+                const nestedDiff = findDifferences(original[key] || {}, updated[key]);
+                if (Object.keys(nestedDiff).length > 0) diff[key] = nestedDiff;
+            } else if (String(original[key]) !== String(updated[key])) {
+                diff[key] = updated[key];
             }
-        };
+        }
+        return diff;
+    };
 
-        // Listen for window load event to start the app
-        window.onload = function() {
-            renderApp();
-        };
-    </script>
+    const callBlendProxy = async (method, body = {}) => {
+        setMessage('');
+        setIsLoading(true);
+
+        try {
+            const response = await fetch('https://blendproxy-198883432206.us-west2.run.app', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${formData.token}`,
+                    'Blend-Target-Instance': formData.tenant,
+                    'Blend-Product': formData.blendProduct
+                },
+                body: JSON.stringify({
+                    method,
+                    loanId: formData.loanId,
+                    blendProduct: formData.blendProduct,
+                    body
+                })
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`HTTP ${response.status}: ${text}`);
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Blend Proxy error:', error);
+            setMessage(`Error: ${error.message}`);
+            return null;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleFetchData = async (e) => {
+        e.preventDefault();
+        const data = await callBlendProxy('GET');
+        if (data) {
+            setApiData(data);
+            setEditedData(data);
+            setIsDataFetched(true);
+            setMessage('Data fetched successfully!');
+        }
+    };
+
+    const handleSaveChanges = async () => {
+        const diff = findDifferences(apiData, editedData);
+        if (Object.keys(diff).length === 0) {
+            setMessage('No changes to save.');
+            return;
+        }
+        const updated = await callBlendProxy('PATCH', diff);
+        if (updated) {
+            setApiData(updated);
+            setEditedData(updated);
+            setMessage('Changes saved successfully!');
+        }
+    };
+
+    return (
+        <div className="bg-gray-100 min-h-screen p-4 sm:p-8 text-gray-800">
+            <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-6 sm:p-10 border border-gray-200">
+                <h1 className="text-3xl font-extrabold text-center text-blue-800 mb-6 tracking-tight">Blend API Editor</h1>
+                <p className="text-center text-gray-600 mb-8">
+                    Enter your API credentials and Loan ID to fetch, view, and edit data.
+                </p>
+
+                <form onSubmit={handleFetchData} className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div className="col-span-1">
+                        <label htmlFor="loanId" className="block text-sm font-medium text-gray-700">Loan ID</label>
+                        <input type="text" name="loanId" value={formData.loanId} onChange={handleFormChange} required className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500" />
+                    </div>
+                    <div className="col-span-1">
+                        <label htmlFor="blendProduct" className="block text-sm font-medium text-gray-700">Blend Product</label>
+                        <input type="text" name="blendProduct" value={formData.blendProduct} onChange={handleFormChange} required className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500" />
+                    </div>
+                    <div className="col-span-1">
+                        <label htmlFor="tenant" className="block text-sm font-medium text-gray-700">Tenant</label>
+                        <input type="text" name="tenant" value={formData.tenant} onChange={handleFormChange} required className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500" />
+                    </div>
+                    <div className="col-span-1">
+                        <label htmlFor="token" className="block text-sm font-medium text-gray-700">Authorization Token</label>
+                        <input type="password" name="token" value={formData.token} onChange={handleFormChange} required className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500" />
+                    </div>
+                    <div className="col-span-1 md:col-span-2">
+                        <button type="submit" disabled={isLoading} className="w-full flex justify-center items-center py-3 px-6 border border-transparent rounded-lg shadow-sm text-lg font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed">
+                            {isLoading && !isDataFetched && <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                            Fetch Data
+                        </button>
+                    </div>
+                </form>
+
+                {message && <div className="p-4 rounded-lg bg-blue-100 text-blue-700 font-medium text-center mb-6">{message}</div>}
+
+                {apiData && (
+                    <div className="mt-8 border-t-2 border-gray-200 pt-8">
+                        <h2 className="text-2xl font-bold text-blue-800 mb-4">Editable Application Data</h2>
+                        <div className="bg-gray-50 p-4 rounded-xl shadow-inner max-h-[60vh] overflow-y-auto">{renderEditableFields(apiData)}</div>
+                        <div className="mt-6">
+                            <button onClick={handleSaveChanges} disabled={isLoading} className="w-full flex justify-center items-center py-3 px-6 border border-transparent rounded-lg shadow-sm text-lg font-bold text-white bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed">
+                                {isLoading && isDataFetched && <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const renderApp = () => {
+    const root = document.getElementById('root');
+    if (root) ReactDOM.createRoot(root).render(<App />);
+    else console.error("Root element not found");
+};
+
+window.onload = renderApp;
+</script>
 </body>
 </html>
