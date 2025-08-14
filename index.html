@@ -70,7 +70,19 @@ const App = () => {
     };
 
     const renderEditableFields = (data, path = '') => {
-        if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        if (Array.isArray(data)) {
+            return data.map((item, index) => {
+                const currentPath = path ? `${path}[${index}]` : `[${index}]`;
+                return (
+                    <div key={currentPath} className="p-2 border-l-4 border-blue-200 ml-2 mb-2 rounded bg-gray-50">
+                        <div className="font-medium text-gray-700 mb-1">Item {index + 1}</div>
+                        {renderEditableFields(item, currentPath)}
+                    </div>
+                );
+            });
+        }
+    
+        if (typeof data !== 'object' || data === null) {
             return (
                 <input
                     type="text"
@@ -80,7 +92,7 @@ const App = () => {
                 />
             );
         }
-
+    
         return Object.entries(data).map(([key, value]) => {
             const currentPath = path ? `${path}.${key}` : key;
             return (
@@ -91,6 +103,7 @@ const App = () => {
             );
         });
     };
+
 
     const findDifferences = (original, updated) => {
         const diff = {};
