@@ -135,34 +135,36 @@
                 e.preventDefault();
                 setMessage('');
                 setIsLoading(true);
-
+            
                 const { loanId, tenant, blendProduct, token } = formData;
                 const url = `https://blendproxy-198883432206.us-west2.run.app`;
-
+            
                 try {
                     const response = await fetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'tenant': tenant,                        // Pass tenant as header
+                            'Authorization': `Bearer ${token}`       // Optional if proxy requires token
+                        },
                         body: JSON.stringify({
                             method: 'GET',
                             loanId,
-                            tenant,
                             blendProduct,
-                            token
                         })
                     });
-
+            
                     if (!response.ok) {
                         const errorText = await response.text();
                         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
                     }
-
+            
                     const data = await response.json();
                     setApiData(data);
                     setEditedData(data); // Create an editable copy
                     setIsDataFetched(true);
                     setMessage('Data fetched successfully!');
-
+            
                 } catch (error) {
                     console.error('Fetch error:', error);
                     setMessage(`Failed to fetch data: ${error.message}`);
@@ -170,47 +172,49 @@
                     setIsLoading(false);
                 }
             };
-
+            
             // Handles the PATCH request to save changes
             const handleSaveChanges = async () => {
                 setMessage('');
                 setIsLoading(true);
-
+            
                 const diff = findDifferences(apiData, editedData);
-
+            
                 if (Object.keys(diff).length === 0) {
                     setMessage('No changes to save.');
                     setIsLoading(false);
                     return;
                 }
-
+            
                 const { loanId, tenant, blendProduct, token } = formData;
-                const url = `/.netlify/functions/blendlabs-proxy`;
-
+                const url = `https://blendproxy-198883432206.us-west2.run.app`;
+            
                 try {
                     const response = await fetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'tenant': tenant,                        // Pass tenant as header
+                            'Authorization': `Bearer ${token}`       // Optional if proxy requires token
+                        },
                         body: JSON.stringify({
                             method: 'PATCH',
                             loanId,
-                            tenant,
                             blendProduct,
-                            token,
                             body: diff,
                         })
                     });
-
+            
                     if (!response.ok) {
                         const errorText = await response.text();
                         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
                     }
-
+            
                     const updatedData = await response.json();
                     setApiData(updatedData);
                     setEditedData(updatedData);
                     setMessage('Changes saved successfully!');
-
+            
                 } catch (error) {
                     console.error('Save error:', error);
                     setMessage(`Failed to save changes: ${error.message}`);
