@@ -70,7 +70,9 @@ const App = () => {
     };
 
     const renderEditableFields = (data, path = '') => {
-        if (typeof data !== 'object' || data === null) {
+        if (data === null || data === undefined) return null;
+    
+        if (typeof data !== 'object') {
             return (
                 <input
                     type="text"
@@ -82,37 +84,24 @@ const App = () => {
         }
     
         if (Array.isArray(data)) {
-            // Special handling for borrowers array
-            if (path === 'borrowers') {
-                return (
-                    <div className="max-h-96 overflow-y-auto space-y-3">
-                        {data.map((item, index) => {
-                            const currentPath = `${path}[${index}]`;
-                            const title = item.firstName && item.lastName ? `${item.firstName} ${item.lastName}` : `Borrower ${index + 1}`;
-                            const isOpen = expandedPaths[currentPath] ?? true; // default open
-    
-                            return (
-                                <div key={currentPath} className="border border-gray-200 rounded-lg bg-white shadow-sm">
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleExpand(currentPath)}
-                                        className="w-full text-left px-4 py-2 bg-gray-100 rounded-t-lg font-semibold flex justify-between items-center hover:bg-gray-200"
-                                    >
-                                        {title}
-                                        <span className="ml-2">{isOpen ? '▲' : '▼'}</span>
-                                    </button>
-                                    {isOpen && <div className="p-4 space-y-2">{renderEditableFields(item, currentPath)}</div>}
-                                </div>
-                            );
-                        })}
-                    </div>
-                );
-            }
-    
-            // Generic array handling for other arrays
-            return data.map((item, index) => renderEditableFields(item, `${path}[${index}]`));
+            return data.length === 0 ? (
+                <div className="text-gray-400 italic">Empty array</div>
+            ) : (
+                <div className="space-y-2">
+                    {data.map((item, index) => {
+                        const currentPath = `${path}[${index}]`;
+                        return (
+                            <div key={currentPath} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="font-medium text-gray-700 mb-2">{`${path.split('.').pop()} #${index + 1}`}</div>
+                                {renderEditableFields(item, currentPath)}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
         }
     
+        // handle normal object
         return Object.entries(data).map(([key, value]) => {
             const currentPath = path ? `${path}.${key}` : key;
             return (
