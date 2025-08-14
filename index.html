@@ -137,7 +137,7 @@
                 setIsLoading(true);
 
                 const { loanId, tenant, blendProduct, token } = formData;
-                const url = `/.netlify/functions/blendlabs-proxy`;
+                const url = `https://blendproxy-198883432206.us-west2.run.app`;
 
                 try {
                     const response = await fetch(url, {
