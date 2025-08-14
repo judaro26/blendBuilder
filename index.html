@@ -101,7 +101,7 @@ const App = () => {
             );
         }
     
-        // handle normal object
+        // handle object (including nested objects)
         return Object.entries(data).map(([key, value]) => {
             const currentPath = path ? `${path}.${key}` : key;
             return (
